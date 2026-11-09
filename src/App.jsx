@@ -83,9 +83,10 @@ export default function App() {
       setTouchRingKey(null);
       requestAnimationFrame(() => setTouchRingKey(meta.key));
 
+      // Trigger transition immediately on next tick so there is 0ms artificial lag
       autoTimerRef.current = setTimeout(() => {
         triggerTransitionTo3D(meta);
-      }, 160);
+      }, 50);
     },
     [triggerTransitionTo3D]
   );

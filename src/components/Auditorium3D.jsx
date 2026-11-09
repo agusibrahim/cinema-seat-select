@@ -274,75 +274,101 @@ export default function Auditorium3D({
     const armInst = new THREE.InstancedMesh(armGeo, armrestMat, 126 * 2);
     scene.add(armInst);
 
+    // Pre-cache matrix transforms for all 126 seats
+    const seatTransforms = [];
     const dummy = new THREE.Object3D();
     const zeroMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 
-    function updateStaticSeatInstances(selectedRowIdx = -1, selectedSeatNum = -1) {
-      let sIdx = 0;
-      let rIdx = 0;
-      let aIdx = 0;
+    let sIdx = 0;
+    let rIdx = 0;
+    let aIdx = 0;
 
-      for (let rowIdx = 0; rowIdx < 9; rowIdx++) {
-        const isRecliner = rowIdx >= 7;
-        const width = isRecliner ? 0.6 : 0.56;
-        for (let seatNum = 1; seatNum <= SEATS_PER_ROW; seatNum++) {
-          const { x, y, z } = getSeatWorldCoords(rowIdx, seatNum);
-          const isSelected = rowIdx === selectedRowIdx && seatNum === selectedSeatNum;
+    for (let rowIdx = 0; rowIdx < 9; rowIdx++) {
+      const isRecliner = rowIdx >= 7;
+      const width = isRecliner ? 0.6 : 0.56;
+      for (let seatNum = 1; seatNum <= SEATS_PER_ROW; seatNum++) {
+        const { x, y, z } = getSeatWorldCoords(rowIdx, seatNum);
 
-          // Cushion (hide red instance for selected seat to prevent Z-fighting with green selectedGroup!)
-          if (isSelected) {
-            if (isRecliner) {
-              recCushionInst.setMatrixAt(rIdx, zeroMatrix);
-              recBolsterInst.setMatrixAt(rIdx, zeroMatrix);
-              rIdx++;
-            } else {
-              stdCushionInst.setMatrixAt(sIdx, zeroMatrix);
-              stdBolsterInst.setMatrixAt(sIdx, zeroMatrix);
-              sIdx++;
-            }
-          } else {
-            dummy.position.set(x, y + 0.28, z - 0.02);
-            dummy.rotation.set(0, 0, 0);
-            dummy.scale.set(1, 1, 1);
-            dummy.updateMatrix();
-            if (isRecliner) {
-              recCushionInst.setMatrixAt(rIdx, dummy.matrix);
-            } else {
-              stdCushionInst.setMatrixAt(sIdx, dummy.matrix);
-            }
+        dummy.position.set(x, y + 0.28, z - 0.02);
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        const cushionMatrix = dummy.matrix.clone();
 
-            // Bolster
-            dummy.position.set(x, y + 0.34, z + 0.21);
-            dummy.updateMatrix();
-            if (isRecliner) {
-              recBolsterInst.setMatrixAt(rIdx, dummy.matrix);
-              rIdx++;
-            } else {
-              stdBolsterInst.setMatrixAt(sIdx, dummy.matrix);
-              sIdx++;
-            }
-          }
+        dummy.position.set(x, y + 0.34, z + 0.21);
+        dummy.updateMatrix();
+        const bolsterMatrix = dummy.matrix.clone();
 
-          // Left & Right Armrests
-          dummy.position.set(x - width * 0.5 - 0.032, y + 0.42, z);
-          dummy.rotation.set(isRecliner ? -0.15 : -0.05, 0, 0);
-          dummy.scale.set(1, 1, 1);
-          dummy.updateMatrix();
-          armInst.setMatrixAt(aIdx++, dummy.matrix);
+        dummy.position.set(x - width * 0.5 - 0.032, y + 0.42, z);
+        dummy.rotation.set(isRecliner ? -0.15 : -0.05, 0, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        const armLeftMatrix = dummy.matrix.clone();
 
-          dummy.position.set(x + width * 0.5 + 0.032, y + 0.42, z);
-          dummy.updateMatrix();
-          armInst.setMatrixAt(aIdx++, dummy.matrix);
+        dummy.position.set(x + width * 0.5 + 0.032, y + 0.42, z);
+        dummy.updateMatrix();
+        const armRightMatrix = dummy.matrix.clone();
+
+        seatTransforms.push({
+          rowIdx,
+          seatNum,
+          isRecliner,
+          sIdx: isRecliner ? -1 : sIdx++,
+          rIdx: isRecliner ? rIdx++ : -1,
+          aLeftIdx: aIdx++,
+          aRightIdx: aIdx++,
+          cushionMatrix,
+          bolsterMatrix,
+          armLeftMatrix,
+          armRightMatrix
+        });
+      }
+    }
+
+    let currentSelectedSeatKey = null;
+
+    function applySelectedSeatToInstances(selectedRowIdx = -1, selectedSeatNum = -1) {
+      const key = `${selectedRowIdx}_${selectedSeatNum}`;
+      if (key === currentSelectedSeatKey) return;
+      currentSelectedSeatKey = key;
+
+      for (let i = 0; i < seatTransforms.length; i++) {
+        const item = seatTransforms[i];
+        const isSel = item.rowIdx === selectedRowIdx && item.seatNum === selectedSeatNum;
+
+        if (item.isRecliner) {
+          recCushionInst.setMatrixAt(item.rIdx, isSel ? zeroMatrix : item.cushionMatrix);
+          recBolsterInst.setMatrixAt(item.rIdx, isSel ? zeroMatrix : item.bolsterMatrix);
+        } else {
+          stdCushionInst.setMatrixAt(item.sIdx, isSel ? zeroMatrix : item.cushionMatrix);
+          stdBolsterInst.setMatrixAt(item.sIdx, isSel ? zeroMatrix : item.bolsterMatrix);
         }
       }
+
       stdCushionInst.instanceMatrix.needsUpdate = true;
       recCushionInst.instanceMatrix.needsUpdate = true;
       stdBolsterInst.instanceMatrix.needsUpdate = true;
       recBolsterInst.instanceMatrix.needsUpdate = true;
-      armInst.instanceMatrix.needsUpdate = true;
     }
 
-    updateStaticSeatInstances(-1, -1);
+    // Populate initial instances
+    seatTransforms.forEach((item) => {
+      if (item.isRecliner) {
+        recCushionInst.setMatrixAt(item.rIdx, item.cushionMatrix);
+        recBolsterInst.setMatrixAt(item.rIdx, item.bolsterMatrix);
+      } else {
+        stdCushionInst.setMatrixAt(item.sIdx, item.cushionMatrix);
+        stdBolsterInst.setMatrixAt(item.sIdx, item.bolsterMatrix);
+      }
+      armInst.setMatrixAt(item.aLeftIdx, item.armLeftMatrix);
+      armInst.setMatrixAt(item.aRightIdx, item.armRightMatrix);
+    });
+
+    stdCushionInst.instanceMatrix.needsUpdate = true;
+    recCushionInst.instanceMatrix.needsUpdate = true;
+    stdBolsterInst.instanceMatrix.needsUpdate = true;
+    recBolsterInst.instanceMatrix.needsUpdate = true;
+    armInst.instanceMatrix.needsUpdate = true;
 
     // Dedicated Highlighted Selected Seat Group (Mint Green + Seat Number Badge)
     const selectedGroup = new THREE.Group();
@@ -641,7 +667,7 @@ export default function Auditorium3D({
           lookState.yawVel = 0;
           lookState.pitchVel = 0;
           updateSeatNumberBadge(seat.seatNum);
-          updateStaticSeatInstances(seat.rowIdx, seat.seatNum);
+          applySelectedSeatToInstances(seat.rowIdx, seat.seatNum);
           selCushion.geometry = seat.isRecliner ? recCushionGeo : stdCushionGeo;
           selBolster.geometry = seat.isRecliner ? recBolsterGeo : stdBolsterGeo;
           selBackrest.geometry = seat.isRecliner ? reclinerBackGeo : standardBackGeo;

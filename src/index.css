@@ -133,8 +133,6 @@ body,
   flex-direction: column;
   padding-top: 48px;
   background: var(--bg-dark);
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
   will-change: transform, opacity;
 }
 
@@ -571,14 +569,12 @@ body,
 }
 
 .pov-bottom-sheet {
-  background: rgba(18, 17, 20, 0.96);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: #141316;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 28px 28px 0 0;
   padding: 10px 20px 30px;
   transform: translateY(105%);
-  transition: transform 0.46s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: auto;
   box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.65);
 }
