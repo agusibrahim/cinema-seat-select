@@ -458,9 +458,10 @@ export default function Auditorium3D({
       const refW = Math.max(320, container.clientWidth || 390);
       const sensitivity = 1.65 / refW;
 
-      // Fixed natural touch direction (pulling scene in finger direction)
+      // Pitch: swipe up (dy < 0) -> look up (+pitch)
+      //        swipe down (dy > 0) -> look down (-pitch)
       const deltaYaw = dx * sensitivity;
-      const deltaPitch = -dy * sensitivity * 0.85;
+      const deltaPitch = dy * sensitivity * 0.85;
 
       const yawEdgeFactor = 1 - 0.55 * Math.pow(Math.abs(lookState.targetYaw) / MAX_YAW_RAD, 2);
       const pitchEdgeFactor = 1 - 0.55 * Math.pow(Math.abs(lookState.targetPitch) / MAX_PITCH_RAD, 2);
@@ -647,7 +648,8 @@ export default function Auditorium3D({
         }
 
         if (currentMode === "TRANSITION_TO_3D") {
-          const elapsed = now - bmTransitionStart();
+          const startTime = bmTransitionStart(now);
+          const elapsed = now - startTime;
           const t = THREE.MathUtils.clamp(elapsed / 1550, 0, 1);
           applyWasmCameraPose(seat, t);
 
@@ -665,7 +667,8 @@ export default function Auditorium3D({
         } else if (currentMode === "POV_3D") {
           applyWasmCameraPose(seat, 1);
         } else if (currentMode === "TRANSITION_TO_2D") {
-          const elapsed = now - bmTransitionStart();
+          const startTime = bmTransitionStart(now);
+          const elapsed = now - startTime;
           const u = THREE.MathUtils.clamp(elapsed / 1200, 0, 1);
           const t = 1 - u;
           applyWasmCameraPose(seat, t);
@@ -689,8 +692,11 @@ export default function Auditorium3D({
       renderer.render(scene, camera);
     }
 
-    function bmTransitionStart() {
-      return btnMetricsRef.current.transitionStartTime || performance.now();
+    function bmTransitionStart(now) {
+      if (!btnMetricsRef.current.transitionStartTime) {
+        btnMetricsRef.current.transitionStartTime = now;
+      }
+      return btnMetricsRef.current.transitionStartTime;
     }
 
     animFrameId = requestAnimationFrame(animate);

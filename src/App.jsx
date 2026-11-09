@@ -47,7 +47,7 @@ export default function App() {
           btnWidth: btnRect.width,
           btnNdcX: (cx / frameRect.width) * 2 - 1,
           btnNdcY: -((cy / frameRect.height) * 2 - 1),
-          transitionStartTime: performance.now()
+          transitionStartTime: 0 // Stamped on first render frame
         };
       }
     }
@@ -59,7 +59,7 @@ export default function App() {
 
   const triggerTransitionTo2D = useCallback(() => {
     if (modeRef.current !== "POV_3D" && modeRef.current !== "TRANSITION_TO_3D") return;
-    btnMetricsRef.current.transitionStartTime = performance.now();
+    btnMetricsRef.current.transitionStartTime = 0; // Stamped on first render frame
     modeRef.current = "TRANSITION_TO_2D";
 
     const hudEl = povHudLayerRef.current;
@@ -85,7 +85,7 @@ export default function App() {
 
       autoTimerRef.current = setTimeout(() => {
         triggerTransitionTo3D(meta);
-      }, 550);
+      }, 160);
     },
     [triggerTransitionTo3D]
   );
