@@ -55,7 +55,7 @@ export default function Auditorium3D({
       antialias: true,
       powerPreference: "high-performance"
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
     container.innerHTML = "";
@@ -78,7 +78,13 @@ export default function Auditorium3D({
     };
     desertImg.src = `${import.meta.env.BASE_URL}desert-screen.jpg`;
 
+    let lastDesertFrameUpdate = 0;
+
     function renderDesertMovieFrame(timeSec) {
+      // Throttle movie canvas updates to 30fps to free up GPU bus on mobile
+      if (timeSec - lastDesertFrameUpdate < 0.033) return;
+      lastDesertFrameUpdate = timeSec;
+
       const w = screenCanvas.width;
       const h = screenCanvas.height;
       if (desertImgLoaded) {

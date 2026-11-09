@@ -27,6 +27,26 @@ export default function App() {
     transitionStartTime: 0
   });
 
+  const triggerTransitionTo2D = useCallback(() => {
+    if (modeRef.current !== "POV_3D" && modeRef.current !== "TRANSITION_TO_3D") return;
+    btnMetricsRef.current.transitionStartTime = 0; // Stamped on first render frame
+    modeRef.current = "TRANSITION_TO_2D";
+
+    const hudEl = povHudLayerRef.current;
+    if (hudEl) {
+      hudEl.classList.remove("sheet-visible", "active");
+    }
+    const webglEl = document.getElementById("webgl-container");
+    if (webglEl) {
+      webglEl.classList.remove("interactive");
+    }
+
+    // Re-push history state so future back gestures remain predictable
+    if (window.history.state?.view === "pov_3d") {
+      window.history.back();
+    }
+  }, []);
+
   const triggerTransitionTo3D = useCallback((meta) => {
     const seat = meta || selectedSeatRef.current;
     if (!seat) return;
@@ -55,21 +75,9 @@ export default function App() {
     const webglEl = document.getElementById("webgl-container");
     if (webglEl) webglEl.classList.add("visible");
     modeRef.current = "TRANSITION_TO_3D";
-  }, []);
 
-  const triggerTransitionTo2D = useCallback(() => {
-    if (modeRef.current !== "POV_3D" && modeRef.current !== "TRANSITION_TO_3D") return;
-    btnMetricsRef.current.transitionStartTime = 0; // Stamped on first render frame
-    modeRef.current = "TRANSITION_TO_2D";
-
-    const hudEl = povHudLayerRef.current;
-    if (hudEl) {
-      hudEl.classList.remove("sheet-visible", "active");
-    }
-    const webglEl = document.getElementById("webgl-container");
-    if (webglEl) {
-      webglEl.classList.remove("interactive");
-    }
+    // Push history entry for hardware / swipe back gesture support on Android & iOS
+    window.history.pushState({ view: "pov_3d", seat: seat.key }, "");
   }, []);
 
   const handleSeatTap2D = useCallback(
@@ -80,8 +88,7 @@ export default function App() {
       const meta = getSeatMetadata(rowIdx, seatNum);
       selectedSeatRef.current = meta;
       setSelectedSeat(meta);
-      setTouchRingKey(null);
-      requestAnimationFrame(() => setTouchRingKey(meta.key));
+      setTouchRingKey(meta.key);
 
       // Trigger transition immediately on next tick so there is 0ms artificial lag
       autoTimerRef.current = setTimeout(() => {
@@ -90,6 +97,27 @@ export default function App() {
     },
     [triggerTransitionTo3D]
   );
+
+  // Hardware Back Button & Browser/OS Gesture Navigation Listener
+  React.useEffect(() => {
+    const handlePopState = (e) => {
+      if (modeRef.current === "POV_3D" || modeRef.current === "TRANSITION_TO_3D") {
+        btnMetricsRef.current.transitionStartTime = 0;
+        modeRef.current = "TRANSITION_TO_2D";
+        const hudEl = povHudLayerRef.current;
+        if (hudEl) {
+          hudEl.classList.remove("sheet-visible", "active");
+        }
+        const webglEl = document.getElementById("webgl-container");
+        if (webglEl) {
+          webglEl.classList.remove("interactive");
+        }
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const handleMinimapSeatTap = useCallback((e, rowIdx, seatNum) => {
     e.stopPropagation();
